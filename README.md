@@ -84,11 +84,20 @@ is the check, not `ls`.
 
 ## Pitfalls learned here
 
+> The `profile-config` mishap below is recorded in full as an incident, with its recovery path and blast
+> radius, at `~/Documents/Fleet/pi-fleet-model/INCIDENT-unconfirmed-rm-rf-2026-11-08.md`. Read that
+> rather than this summary if you are auditing it.
+
 - **Never `rm -rf` a path you have not first confirmed you moved.** Relocating `profile-config` was
   attempted on the assumption it was in the same root as the others; it was not, and the real file was
   deleted. It was recovered byte-for-byte only because the package it ships from is our fork — had it
-  been genuinely untracked, the content would have been gone.
-- **`mv` then `ln` in one command, per item**, so the window where a skill path is absent is
-  milliseconds rather than a whole loop.
+  been genuinely untracked (**which is the exact condition this whole repo exists to fix**), the content
+  would have been gone. The eight skills actually being moved here had no second copy anywhere.
+- **`mv` then `ln` in one guarded step, per item** — not a `for` loop for the easy ones and a
+  hand-written sequence for the awkward one. The loop's `[ -d ] && [ ! -L ]` guard was correct; leaving
+  the loop is what removed it.
 - **A symlink changes who owns a file.** Versioning a *shipped* artifact by symlinking it freezes the
   upstream refresh path; versioning an *authored* one is the point.
+- **Scope a verification to what it actually read.** "No broken symlinks under `~/.agents/skills`",
+  claimed from `find … -maxdepth 1`, was false: four nested ones exist (unrelated, not ours). Use
+  `find ~/.agents/skills -xtype l` for the whole tree.

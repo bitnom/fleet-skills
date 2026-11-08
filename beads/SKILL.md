@@ -97,6 +97,14 @@ Verified 2026-11-08 with a throwaway bead:
 | close #2, reason "SECOND reason" | `… clear  <id>` | **`Close reason: FIRST reason`** — unchanged |
 | `bd reopen` then `bd close --reason "THIRD reason"` | `… clear  <id>` | `Close reason: THIRD reason` |
 
+**The invariant:** the reason is written only on an **open → closed transition**. That is why a fresh
+close records it and a backfill does not. And the existing reason **survives** the second close
+unchanged — the field is not written at all, rather than cleared — which is the stronger statement and
+the one that explains the false success.
+
+**Two renderers, both false:** the success line is either `✓ Closed <id> — <title>: <reason>` or a bare
+`2026-11-08T12:57:13Z clear  <id>`. A check that pattern-matches only the `✓` form misses the other.
+
 This matters because the convention is *evidence in every close reason*, and the common way a lane
 meets it is **backfilling** beads that were closed before the convention existed — which is exactly
 the case that silently fails. Two rules follow:
@@ -107,9 +115,13 @@ the case that silently fails. Two rules follow:
    whether or not anything changed, so a verification that reads it is a false pass. Check
    `bd show <id>` for the `Close reason:` block.
 
-Reported by `pi-modes-leader`, reproduced by `overlord` and again here before landing. And for the
-attribution on the earlier rule in this file: the `bd count`/gate measurement was `lfm3-leader`'s;
-the skill change is this lane's.
+**Scope: verify before extending.** Measured on the shared `swarm` graph in two spaces — apothic-pi-extensions
+(`pi-modes-leader`) and a throwaway bead here — and reported by `pi-modes-leader`, reproduced by
+`overlord`, and reproduced again here before landing. **No other backend was tested**, so treat this as
+behaviour of *this setup*, not as universal `bd` behaviour; re-measure before quoting it elsewhere.
+
+For the attribution on the earlier rule in this file: the `bd count`/gate measurement was
+`lfm3-leader`'s; the skill change is this lane's.
 
 ## A bead with no `project:` label is an anomaly
 

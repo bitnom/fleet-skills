@@ -86,6 +86,31 @@ bd create "Short title" --labels project:<w-id> --description="Why this exists a
 bd close <id> --reason="Completed"
 ```
 
+### Closing: a second close is a silent no-op
+
+`bd close <id> --reason "X"` on an **already-closed** bead does nothing, and says it worked.
+Verified 2026-11-08 with a throwaway bead:
+
+| step | the success line said | what `bd show` said |
+|---|---|---|
+| close #1 (open → closed), reason "FIRST reason" | `… clear  <id>` | `Close reason: FIRST reason` |
+| close #2, reason "SECOND reason" | `… clear  <id>` | **`Close reason: FIRST reason`** — unchanged |
+| `bd reopen` then `bd close --reason "THIRD reason"` | `… clear  <id>` | `Close reason: THIRD reason` |
+
+This matters because the convention is *evidence in every close reason*, and the common way a lane
+meets it is **backfilling** beads that were closed before the convention existed — which is exactly
+the case that silently fails. Two rules follow:
+
+1. **To backfill a reason: `bd reopen <id> && bd close <id> --reason "X"`.** A plain second close
+   cannot do it.
+2. **Verify a reason by reading the bead, never the close line.** The success line is identical
+   whether or not anything changed, so a verification that reads it is a false pass. Check
+   `bd show <id>` for the `Close reason:` block.
+
+Reported by `pi-modes-leader`, reproduced by `overlord` and again here before landing. And for the
+attribution on the earlier rule in this file: the `bd count`/gate measurement was `lfm3-leader`'s;
+the skill change is this lane's.
+
 ## A bead with no `project:` label is an anomaly
 
 The label is how every space's work is separated, and nothing enforces it — so an unlabelled bead

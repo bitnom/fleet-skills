@@ -84,20 +84,24 @@ is the check, not `ls`.
 
 ## Pitfalls learned here
 
-> The `profile-config` mishap below is recorded in full as an incident, with its recovery path and blast
-> radius, at `~/Documents/Fleet/pi-fleet-model/INCIDENT-unconfirmed-rm-rf-2026-11-08.md`. Read that
-> rather than this summary if you are auditing it.
+### The `profile-config` mishap, self-contained
 
-- **Never `rm -rf` a path you have not first confirmed you moved.** Relocating `profile-config` was
-  attempted on the assumption it was in the same root as the others; it was not, and the real file was
-  deleted. It was recovered byte-for-byte only because the package it ships from is our fork — had it
-  been genuinely untracked (**which is the exact condition this whole repo exists to fix**), the content
-  would have been gone. The eight skills actually being moved here had no second copy anywhere.
-- **`mv` then `ln` in one guarded step, per item** — not a `for` loop for the easy ones and a
-  hand-written sequence for the awkward one. The loop's `[ -d ] && [ ! -L ]` guard was correct; leaving
-  the loop is what removed it.
+On 2026-11-08 this repo was created by relocating eight skills out of `~/.agents/skills/` — and while
+doing it, a ninth file, `~/.pi/agent/skills/profile-config/SKILL.md`, was **deleted by an `rm -rf`
+against an assumed path**. It was restored byte-identical (`e157d02c…`, 14892 bytes), and **the
+recovery was luck, not process**: only that file had a second copy (it ships from our own
+`pi-profile-switch` fork). The **eight skills actually being relocated had no second copy anywhere** —
+the same command against any of them would have been unrecoverable.
+
+Full record: `~/Documents/Fleet/pi-fleet-model/INCIDENT-unconfirmed-rm-rf-2026-11-08.md`. These lines
+are kept here too, deliberately, so the essentials survive even if `pi-fleet-model/` is ever pruned.
+
+- **Run the same guarded `mv && ln` step for every item, including the last.** The eight real moves ran
+  inside a `for` loop carrying a `[ -d ] && [ ! -L ]` guard; the ninth was hand-written outside it,
+  which is what dropped the guard. The guard was right — leaving the loop removed it.
+- **`profile-config` must stay a real file, never a symlink** (the `postinstall` rule above).
+- **Scope a verification to what it actually read.** "No broken symlinks under `~/.agents/skills`",
+  claimed from `find … -maxdepth 1`, was false: four nested ones exist (unrelated, not ours, not from
+  this work). Use `find ~/.agents/skills -xtype l` for the whole tree.
 - **A symlink changes who owns a file.** Versioning a *shipped* artifact by symlinking it freezes the
   upstream refresh path; versioning an *authored* one is the point.
-- **Scope a verification to what it actually read.** "No broken symlinks under `~/.agents/skills`",
-  claimed from `find … -maxdepth 1`, was false: four nested ones exist (unrelated, not ours). Use
-  `find ~/.agents/skills -xtype l` for the whole tree.

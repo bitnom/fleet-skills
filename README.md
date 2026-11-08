@@ -1,5 +1,8 @@
 # fleet-skills — the fleet's own agent skills, under version control
 
+**Public mirror:** <https://github.com/bitnom/fleet-skills> (the operator's own account; the fleet's
+own remotes live under the Apothic-AI org, so this one is deliberate).
+
 These are the skills **this fleet authored and maintains**, as opposed to the ~140 vendor and
 project skills that live beside them in `~/.agents/skills/`. They are on the load path of every
 leader lane, so two lanes editing one silently — with no history to diff — is a real hazard. It

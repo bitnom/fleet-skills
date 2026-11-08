@@ -42,6 +42,26 @@ bd list --label project:<w-id> --status=in_progress
 Bare `bd ready` is the fleet, not your space (85 ready beads across 20 spaces when this was
 written). Read it deliberately, never by accident.
 
+**When you state a bead count, state the command that produced it.** Two `bd` verbs answer "how
+many" differently here, and the wider one is the one that looks canonical:
+
+| Command | Includes `type=gate` rows? | Measured 2026-11-08 |
+|---|---|---|
+| `bd count` | **yes** | 316 |
+| `bd list --all --json` (→ `len`) | no | 299 |
+| `bd list --type gate --all --json` | gates only | 17 |
+| `bd list --include-infra --all --json` | no — does **not** restore them | 299 |
+
+316 = 299 + 17, so the relationship is stable and the asymmetry is behaviour of this binary, not an
+accident of one database. A lane quoting a bare `bd count` as "beads visible in the graph" is
+quoting a number the command never made — reproduced here after `lfm3-leader` hit it, and confirmed
+independently by `overlord`.
+
+**So the count to quote is `bd list --all --json` piped to a length**, and the habit is the general
+one: **a number is a claim, and it travels with the command that produced it.** A count without its
+command cannot be reproduced by the reader, and when the two disagree the reader has no way to tell
+which was meant.
+
 2. Inspect before editing:
 
 ```bash

@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# fly-builder-idle-stop — stop the shared Fly build box when genuinely idle.
+#
+# SUPERSEDED 2026-11-01 by apps/starla-staging/scripts/build-server-supervise.sh,
+# and its timer is disabled. Two independent authorities over the same stop is a
+# hazard, not redundancy: they disagreed, and neither was reviewable as the truth
+# (this file lives in a skill directory that is not in any repo). Everything worth
+# keeping from here was carried over: the filesystem-churn signal is now part of
+# the box's own verdict in builder-idle (so the decision still comes from where
+# the work is), and the 6PN repair that this script worked around with a
+# `flyctl proxy` fallback is now done properly by
+# scripts/ensure-build-transport.sh. Verified before retiring: this script's own
+# log shows the last stop it made (2026-11-01T05:24:04Z, "idle 601s, no leases,
+# no compilers"), and the supervisor has since made one itself.
+#
+# WHY THIS EXISTS
+# ---------------
+# open-surrealdb-ds-builder costs ~$0.32/hr as a performance-8x machine and has
+# no [[services]], so Fly's own --autostop can never fire: autostop triggers on
+# proxy traffic going idle, and a build box has no proxy traffic. Billing only
+# stops with an explicit `flyctl machine stop`.
+#
+# The skill (shared-flyio-build-server) says every agent must stop the box when
+# it is done. In practice that is missed whenever a session is interrupted, and
+# the box then bills until a human notices. This is the backstop.
+#
+# WHY IT CHECKS MORE THAN LEASES
+# ------------------------------
+# /data/bin/builder-state implements a proper lease protocol: builds hold
+# /data/state/lease.lock SHARED, `park` takes it EXCLUSIVE. That is the
+# authority, and this script always honours it.
+#
+# But leases are opt-in. Measured on 2026-10-26: dxdb's lanes were running
+# `cargo test --workspace` for an hour while `builder-state status` reported
+# zero live leases. Trusting leases alone would have killed that build. So the
+# stop decision requires ALL of:
+#
+#   1. `builder-state park` succeeds (no live lease)      -> authoritative
+#   2. no cargo/rustc/cc/ld/mold process on the box       -> catches unleased builds
+#   3. no file under /data/builds modified in last 10 min  -> catches a build
+#                                                             between processes
+#
+# Any doubt = do not stop. The cost of being wrong is another agent's aborted
+# build; the cost of waiting is $0.32/hr.
+#
+# NOTE ON ssh SESSIONS: an earlier draft also refused when other ssh sessions
+# were present. That was dropped: this script's own ssh creates a session, the
+# sshd tree has a long-lived master, and agents leave stale idle sessions for
+# hours. Counting them is fragile and would have blocked every stop. Lease +
+# process + churn already cover the live-agent case; a human or agent that
+# merely has a shell open will not be surprised by a stop, because nothing on
+# /data is lost and `machine start` restores the box.
+#
+# INSTALL
+#   systemd --user timer, every 15 min. See fly-builder-idle-stop.timer.
+#   Requires `flyctl` on PATH and `ssh fly-builder` working.
+set -uo pipefail
+
+MACHINE=87477e0cd01748
+APP=open-surrealdb-ds-builder
+IDLE_MIN_SECONDS=${IDLE_MIN_SECONDS:-600}   # 10 min of no filesystem churn
+PROXY_PORT=${PROXY_PORT:-2223}             # local port for the API-proxy fallback
+LOG=${LOG:-$HOME/.local/state/fly-builder-idle-stop.log}
+mkdir -p "$(dirname "$LOG")"
+
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >>"$LOG"; }
+
+# systemd --user does not inherit the login shell's PATH, and flyctl here is a
+# mise shim rather than a system binary. Resolve it explicitly instead of
+# inheriting whatever happens to be on PATH -- a silent "command not found" used
+# to be read as "machine state unknown", which made the timer a no-op.
+resolve_flyctl() {
+  if command -v flyctl >/dev/null 2>&1; then command -v flyctl; return 0; fi
+  for c in "$HOME/.local/share/mise/shims/flyctl" \
+           "$HOME/.local/bin/flyctl" \
+           /usr/local/bin/flyctl /usr/bin/flyctl; do
+    [ -x "$c" ] && { echo "$c"; return 0; }
+  done
+  return 1
+}
+FLYCTL=$(resolve_flyctl) || {
+  log "ERROR: flyctl not found; cannot determine machine state, refusing to act"
+  exit 1
+}
+
+state=$("$FLYCTL" machine status "$MACHINE" -a "$APP" 2>/dev/null | grep -oE 'State: [a-z]+' | awk '{print $2}')
+if [ "${state:-}" != "started" ]; then
+  log "machine state=${state:-unknown}; nothing to do"
+  exit 0
+fi
+# Probe the box once; a dead ssh path must NOT be read as "idle".
+probe_box() {
+  timeout 90 ssh -o BatchMode=yes -o ConnectTimeout=15 "$1" '
+  /data/bin/builder-state park 2>&1 | head -1
+  echo "---PROCS---"
+  for p in /proc/[0-9]*; do
+    c=$(cat $p/comm 2>/dev/null) || continue
+    case "$c" in cargo|rustc|cc1|cc1plus|ld|ld.lld|lld|mold|wasm-pack) echo "proc:$c";; esac
+  done
+  echo "---CPU---"
+  # Only the first five counters are needed; the last variable absorbs the rest
+  # so no field is ever left with a space in it (dash reports "Illegal number").
+  read -r _ u1 n1 s1 i1 w1 rest < /proc/stat
+  sleep 2
+  read -r _ u2 n2 s2 i2 w2 rest < /proc/stat
+  b1=$((u1+n1+s1+w1)); b2=$((u2+n2+s2+w2))
+  t1=$((b1+i1)); t2=$((b2+i2))
+  if [ $((t2-t1)) -gt 0 ]; then echo "cpu_pct=$(( (b2-b1) * 100 / (t2-t1) ))"; else echo "cpu_pct=0"; fi
+  echo "---CHURN---"
+  # Every tree is now at /data/builds/lanes/<lane>/<hash>, and staging at
+  # /data/builds/incoming/<hash>/<run>, so the old -maxdepth 2 saw nothing a
+  # build touches and the verdict degraded to "cannot prove idle" -- which
+  # refuses to stop and quietly restores the billing leak. Depth 6 reaches a
+  # build root plus one level; take the NEWEST match, never the first, or a
+  # busy tree can be reported as stale.
+  newest=$(find /data/builds -maxdepth 6 -newermt "-30 minutes" -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+  newest=${newest%%.*}
+  [ -n "$newest" ] || newest=0
+  echo "churn_age=${newest}"
+' 2>/dev/null
+}
+
+# A local port forward through Fly's API, for when 6PN is stale. This is the
+# same fallback the project build wrappers use.
+start_proxy() {
+  pkill -f "proxy ${PROXY_PORT}:2222" >/dev/null 2>&1 || true
+  # Wait for the old listener to release the port. A SIGTERM'd flyctl keeps its
+  # socket for a moment, and the bind that follows then fails -- which reads as
+  # "no route" while the box is perfectly reachable.
+  for _ in $(seq 1 15); do
+    timeout 1 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/${PROXY_PORT}" 2>/dev/null || break
+    sleep 1
+  done
+  setsid nohup "$FLYCTL" proxy "${PROXY_PORT}:2222" -a "$APP" >/tmp/fly-builder-proxy.log 2>&1 &
+  for _ in $(seq 1 20); do
+    if timeout 1 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/${PROXY_PORT}" 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# Probe the box once; a dead route must NOT be read as "idle".
+#
+# A probe that fails for a route reason used to refuse forever: that is how this
+# machine billed for 35 hours behind a green systemd unit. So try 6PN, then the
+# API proxy, and only then give up.
+SSH_HOST=${BUILDER_SSH_HOST:-fly-builder}
+probe=$(probe_box "$SSH_HOST")
+if [ -z "$probe" ] && [ "$SSH_HOST" = "fly-builder" ]; then
+  log "route: $SSH_HOST unreachable; trying the API proxy"
+  # Reuse a forward that already answers; restart only a dead or stale one.
+  probe=$(probe_box fly-builder-proxy)
+  if [ -z "$probe" ] && start_proxy; then
+    for _ in 1 2 3; do
+      probe=$(probe_box fly-builder-proxy)
+      [ -n "$probe" ] && break
+      sleep 2
+    done
+  fi
+  [ -n "$probe" ] && log "route: the API proxy reaches the box"
+fi
+
+if [ -z "$probe" ]; then
+  log "no route to the box (6PN and the API proxy both failed); refusing to stop (cannot prove idle)"
+  exit 0
+fi
+
+# park prints its success line on stdout; REFUSED goes to stderr but is captured
+# here because the probe merges streams. Only accept the exact success wording.
+if ! grep -q 'park: no builds in flight' <<<"$probe"; then
+  reason=$(sed -n '1p' <<<"$probe")
+  log "refusing: $reason"
+  exit 0
+fi
+
+if grep -q '^proc:' <<<"$probe"; then
+  log "refusing: compile processes present: $(grep '^proc:' <<<"$probe" | tr '\n' ' ')"
+  exit 0
+fi
+
+cpu_pct=$(awk -F= '/^cpu_pct=/{print $2}' <<<"$probe")
+if [ -z "${cpu_pct:-}" ]; then
+  log "refusing: could not determine CPU activity"
+  exit 0
+fi
+if [ "$cpu_pct" -ge 2 ]; then
+  log "refusing: CPU ${cpu_pct}% busy over 2s (a compile or a test is running)"
+  exit 0
+fi
+
+churn_age=$(awk -F= '/^churn_age=/{print $2}' <<<"$probe")
+if [ -z "${churn_age:-}" ]; then
+  log "refusing: could not determine filesystem churn age"
+  exit 0
+fi
+now=$(date +%s)
+if [ "$churn_age" = "0" ]; then
+  # Nothing under /data/builds changed inside the 30-minute window, so the last
+  # churn is older than IDLE_MIN_SECONDS by definition. This used to refuse,
+  # which meant the backstop could never stop a box that had been quiet for half
+  # an hour -- the one case it exists for.
+  idle=$(( IDLE_MIN_SECONDS + 1 ))
+else
+  idle=$(( now - churn_age ))
+fi
+if [ "$idle" -lt "$IDLE_MIN_SECONDS" ]; then
+  log "refusing: /data/builds touched ${idle}s ago (< ${IDLE_MIN_SECONDS}s)"
+  exit 0
+fi
+
+log "idle ${idle}s, no leases, no compilers -> stopping"
+  log "idle ${idle}s, no leases, no compilers -> stopping"
+if timeout 120 "$FLYCTL" machine stop "$MACHINE" -a "$APP" >>"$LOG" 2>&1; then
+  log "machine stopped"
+else
+  log "ERROR: flyctl machine stop failed"
+  exit 1
+fi

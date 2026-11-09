@@ -1,0 +1,31 @@
+# Fly build server for open-surrealdb-ds remote builds.
+#
+# Applied to the existing machine with:
+#     flyctl machine update 841515b2730758 -a fly-builder-glowing-aurora-7598 \
+#         -c ops/fly-builder/fly.toml
+#
+# This file has no [http_service] on purpose. The machine was created with an
+# HTTP service on internal port 8080 that nothing ever serves, and Fly's idle
+# detection keys off service traffic -- so a build server that only ever
+# receives ssh looked permanently idle and was stopped mid-build, twice, with
+# no OOM and no error in the machine's own logs. Dropping the service removes
+# the reason for the platform to stop it.
+
+app = "fly-builder-glowing-aurora-7598"
+primary_region = "iad"
+
+auto_stop_machines = "off"
+auto_start_machines = true
+
+[build]
+  image = "flyio/rchab:sha-8d37d90"
+
+# The 50 GB volume. Everything that must survive a machine restart lives here:
+# CARGO_HOME, RUSTUP_HOME, the build tree, and the OpenSSH host key.
+[mounts]
+  source = "machine_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-8x"
+  memory = "8gb"

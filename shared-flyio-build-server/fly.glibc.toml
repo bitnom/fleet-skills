@@ -1,0 +1,45 @@
+# glibc build server for open-surrealdb-ds remote builds.
+#
+# REPLACES the Alpine machine this app originally had. Kept as a separate file
+# because the Alpine machine's image cannot be overwritten in place -- Fly
+# refuses to "deploy over the remote builder", since that machine is registered
+# as a build machine for the organisation.
+#
+# Create the machine with:
+#     flyctl machine run -a fly-builder-glowing-aurora-7598 \
+#         -c ops/fly-builder/fly.glibc.toml --detach
+#
+# Why glibc, in one line: this workspace cannot be built on musl. bindgen is a
+# build-dependency of both surrealdb-librocksdb-sys and rquickjs-sys, but only
+# the former enables bindgen's `runtime` feature (via surrealdb-rocksdb's
+# `bindgen-runtime`); resolver v3 keeps those two feature sets separate, so
+# rquickjs-sys's bindgen takes the non-runtime path, which needs libclang
+# *linkable at build time*. That works on glibc and cannot work on musl. The
+# symptom on Alpine was bindgen panicking with "Unable to find libclang: ...
+# Dynamic loading not supported", which reads like a missing package and is not.
+#
+# Debian rather than Ubuntu for parity with the upstream CI images.
+#
+# There is no service on purpose. The first machine had an HTTP service on 8080
+# that nothing served, and Fly's idle detection keys off service traffic -- so a
+# build server that only ever receives ssh looked permanently idle and was
+# stopped mid-build with no OOM and nothing in its own logs.
+#
+# NOTE: debian:bookworm-slim has no sshd, so the machine is unreachable until
+# bootstrapped. `flyctl machine exec` is the way in: it argv-splits rather than
+# using a shell, which is fine for single commands such as
+# `apt-get install -y openssh-server` but cannot express shell syntax. See
+# docs/remote-builds.md for the bootstrap sequence.
+
+app = "fly-builder-glowing-aurora-7598"
+primary_region = "iad"
+
+auto_stop_machines = "off"
+auto_start_machines = true
+
+[build]
+  image = "debian:bookworm-slim"
+
+[[vm]]
+  size = "shared-cpu-8x"
+  memory = "8gb"

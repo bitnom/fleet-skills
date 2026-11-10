@@ -38,6 +38,16 @@ ln -sfn ~/Code/fleet-skills/<name> ~/.agents/skills/<name>
 | `pi-hermes-memory-usage` | `~/.agents/skills/pi-hermes-memory-usage` |
 | `pi-persist-usage` | `~/.agents/skills/pi-persist-usage` |
 | `agents-cron` | `~/.agents/skills/agents-cron` |
+| `subrouter-provider-ops` | `~/.agents/skills/subrouter-provider-ops` |
+| `llm-provider-benchmark` | `~/.agents/skills/llm-provider-benchmark` |
+
+`subrouter-provider-ops` and `llm-provider-benchmark` arrived here on 2026-11-10 from the
+load path itself: both were hand-authored straight into `~/.agents/skills` as plain
+directories, with no history to diff and no copy anywhere else. This tree is now their
+home, and both have a `repo` row in `skills/skills.tsv` so `skills-sync.sh install`
+links them on any host. The load-path directories are still real directories until that
+link replaces them — a follow-up for the parent of the FT-15 change, not part of the
+copy itself.
 
 Two fleet-authored skills deliberately live elsewhere, because the convention is "the repo it belongs
 to", and they belong to a space or a package rather than to the fleet at large:

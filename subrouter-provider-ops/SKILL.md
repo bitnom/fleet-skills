@@ -121,6 +121,21 @@ listings at the start of every run, and when a merchant drops out of scope
 say so in the report with the old and new figures. It is a scope change,
 not a deletion: the listing is still there and still serving other people.
 
+**A change of the scope rule is not a merchant failing.** When the filter
+itself changes — from a ceiling on output price to a ceiling on input price,
+say — the merchants that drop out have not got worse; they simply no longer
+answer the question being asked. Say that in the report, and report the
+current price of every merchant that dropped out so the reader can see the
+ceiling that excluded it. A report that says "six merchants left the scope"
+without that context reads as six merchants breaking.
+
+**Keep the scope rule in the data, not in the prose.** The scope builder
+should write the rule it actually applied — the axis and the ceiling — into
+the scope file, and the report generator should read it from there. A
+hard-coded price ceiling in the report template is one edit away from
+describing a filter the run did not use, and the mistake is invisible in the
+output because the numbers look fine.
+
 Two exclusion rules matter more than they look:
 
 - **A missing cache hit rate is not a pass.** The platform stores "no reading"
@@ -382,6 +397,26 @@ benchmark slot on it.
 
 A merchant can pass every filter and still be unable to serve. Probe each
 candidate with one cheap request before spending a full benchmark run on it.
+
+**A probe timeout is not a verdict on the merchant.** A probe uses a shorter
+deadline than the sweep, and on a reasoning model at `max` effort the first
+token can take several seconds and the visible answer much longer. One
+merchant hit a 90-second probe deadline and answered normally at 150 seconds;
+another probe at 200 `max_tokens` produced a first token and no visible
+content. That may reflect reasoning or an exhausted output budget, not
+categorical merchant failure. Re-probe at the sweep's own deadline and with
+an adequate output budget before writing a merchant off, and distinguish
+three probe outcomes rather than two:
+
+| Probe outcome | Reading |
+|---|---|
+| HTTP 4xx/5xx, no token at all | this request/route failed; inspect auth, group/model access and upstream error before attributing merchant incapacity |
+| a token arrived, no visible content | token production was observed, not a usable answer; reasoning or an insufficient output budget may explain it |
+| the wall deadline fired | unknown; re-probe at the sweep's deadline |
+
+A timeout or an unexplained HTTP status alone is not proof that the merchant
+cannot serve. Distinguish invalid access, model/group mismatch and transient
+request/route failure from confirmed inability to serve the intended workload.
 
 ### When the schedule forces a concurrent sweep
 

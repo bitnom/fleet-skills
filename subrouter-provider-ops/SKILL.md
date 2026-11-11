@@ -297,6 +297,35 @@ intend. After a benchmark, read the account log:
 GET /api/log/self?p=1&page_size=100
 ```
 
+Bound the log query to the benchmark's own time window rather than trimming an
+unbounded fetch afterwards. Every claim below about query parameters, units,
+caps and clamps comes from the upstream `new-api` snapshot pinned at
+`0409deccfff2b0e8babc28ca552af44d526375bf` (`common/page_info.go`,
+`controller/log.go`, `model/log.go`); **the live SubRouter deployment is
+unverified and may differ**, so this is a conditional example, not a contract:
+
+```text
+GET /api/log/self?p=1&page_size=100&start_timestamp=<unix-second>&end_timestamp=<unix-second>
+```
+
+There, `start_timestamp`/`end_timestamp` are inclusive Unix **seconds** applied
+as a server-side `created_at` range, `page_size` caps at 100, `p` is 1-based,
+and no cursor parameter is read. If you verify the deployment honours them —
+returned `created_at` inside the requested window, each requested page
+advancing — the bounds are usable; otherwise report coverage **incomplete** and
+attribution **unknown**.
+
+**In-window rows are necessary, not sufficient.** `data.total` is capped
+upstream (`logSearchCountLimit`), so it is not a paging terminator and not proof
+of coverage: a walk ordered newest-first can stop before the earliest rows. A
+cap hit, a terminal page that contradicts `data.total`, or any part of the
+window you could not page means **incomplete coverage** and **unknown
+attribution** — never an empty result.
+
+In that snapshot an omitted `start_timestamp` is not "unbounded" — a non-admin
+query with no start is clamped to the maximum lookback, and a wider window is
+rejected outright — so pass both ends explicitly.
+
 Each row carries `group` (`provider:<slug>`), `completion_tokens`,
 `use_time` (seconds), and an `other` JSON blob holding `provider_slug`,
 `frt` (first-response time in ms), `reasoning_effort`, and the per-provider

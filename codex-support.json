@@ -1,0 +1,118 @@
+[
+  {
+    "paths": [
+      "docs/operations.md"
+    ],
+    "text": "For pi, droid, claude and codex the native `herdr agent wait` is reliable.",
+    "reason": "Compatibility fact, not a fleet launch instruction."
+  },
+  {
+    "paths": [
+      "src/herdr-plugins/unblock/skills/unblock/SKILL.md",
+      ".agents/skills/unblock/SKILL.md"
+    ],
+    "text": "  the console URL of the exact page, an app scheme (`codex://settings/...`) or",
+    "reason": "Example settings URI for a consent request, not CLI invocation."
+  },
+  {
+    "paths": [
+      "src/pi-extensions/pi-cache-optimizer/.pi/skills/trellis-brainstorm/SKILL.md"
+    ],
+    "text": "> **Codex exception**: on Codex CLI, do NOT dispatch `trellis-research` for research-first mode — do the research inline (WebFetch / WebSearch in the main session) and write findings to `{TASK_DIR}/research/<topic>.md` yourself. Reason: Codex `spawn_agent` runs sub-agents with `fork_turns=\"none\"` (isolated context, no parent session inheritance), so the research sub-agent cannot resolve the active task path via `task.py current` and silently aborts without producing files. Inline research on Codex avoids this failure mode. The 3+ inline research calls limit (B rule in `workflow.md`) is relaxed for Codex specifically.",
+    "reason": "Conditional Codex CLI restriction: forbids delegation; does not select or launch Codex."
+  },
+  {
+    "paths": [
+      "src/pi-extensions/pi-cache-optimizer/.pi/skills/trellis-meta/SKILL.md"
+    ],
+    "text": "- Platform directories: `.claude/`, `.codex/`, `.cursor/`, `.opencode/`, `.kiro/`, `.gemini/`, `.qoder/`, `.codebuddy/`, `.github/`, `.factory/`, `.pi/`, `.kilocode/`, `.agent/`, `.windsurf/`, and similar directories.",
+    "reason": "Cross-platform project directory inventory."
+  },
+  {
+    "paths": [
+      "src/pi-extensions/pi-cache-optimizer/AGENTS.md"
+    ],
+    "text": "If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:",
+    "reason": "Conditional existing-runtime helper locations; not a spawn command. AGENTS is read-only in FT-34."
+  },
+  {
+    "paths": [
+      "src/pi-extensions/pi-cache-optimizer/AGENTS.md"
+    ],
+    "text": "- `.codex/agents/` — optional custom subagents",
+    "reason": "Conditional existing-runtime helper locations; not a spawn command. AGENTS is read-only in FT-34."
+  },
+  {
+    "paths": [
+      "src/skills/fleet-skills/README.md"
+    ],
+    "text": "The discovery JSON records every inspected file and Codex occurrence, including",
+    "reason": "Regression checker documentation; not a spawn instruction."
+  },
+  {
+    "paths": [
+      "src/skills/fleet-skills/README.md"
+    ],
+    "text": "allowed historical/product-support references. Unknown Codex text on an active",
+    "reason": "Regression checker documentation; not a spawn instruction."
+  },
+  {
+    "paths": [
+      "src/skills/fleet-skills/herdr/SKILL.md",
+      ".agents/skills/herdr/SKILL.md"
+    ],
+    "text": "`agent prompt` honors the pane's live bracketed-paste mode and sends text followed by encoded Enter as one ordered submission. It reports successful submission only after both have been written; that alone does not prove the agent started a turn. Product-support note (not fleet spawn guidance): for Codex on Windows, Herdr sends a paste boundary before Enter so submission does not depend on prompt size. It rejects an agent already waiting at an approval or question dialog with `agent_blocked` before sending any input. Inspect the blocked UI and ask the user before answering it. For normal agent work, `--wait` is enough: it waits for the first settled `idle`, `done`, or `blocked` state. Do not repeat those defaults with `--until`.",
+    "reason": "Compatibility fact, not a fleet launch instruction."
+  },
+  {
+    "paths": [
+      "src/skills/fleet-skills/lane-identity/SKILL.md",
+      ".agents/skills/lane-identity/SKILL.md"
+    ],
+    "text": "- a harness — `droid`, `opencode`, `pi`, `codex`",
+    "reason": "Explicitly prohibited owner values; not a spawn instruction."
+  },
+  {
+    "paths": [
+      "src/skills/fleet-skills/pi-goal-contracts/SKILL.md",
+      ".agents/skills/pi-goal-contracts/SKILL.md"
+    ],
+    "text": "pi runs `@signalridge/pi-goal` (npm; config `~/.pi/agent/pi-goal.json`, `experimental.goals: true`). codex has native `/goal`. The two are not interchangeable, and pi's is stricter.",
+    "reason": "Distinguishes native Codex /goal from Pi goal semantics; legitimate compatibility documentation."
+  },
+  {
+    "paths": [
+      "yellowstone-skill/SKILL.md"
+    ],
+    "text": "herdr integration install <agent>           # pi, droid, opencode, agy, grok, claude, codex, ...",
+    "reason": "Compatibility fact, not a fleet launch instruction."
+  },
+  {
+    "paths": [
+      "yellowstone-skill/SKILL.md"
+    ],
+    "text": "for pi, droid, claude and codex the native `herdr agent wait` is trustworthy.",
+    "reason": "Compatibility fact, not a fleet launch instruction."
+  },
+  {
+    "paths": [
+      "yellowstone-skill/SKILL.md"
+    ],
+    "text": "**`@signalridge/pi-goal`** — the goal extension, and it is **not** `pi-codex-goal`.",
+    "reason": "Compatibility fact, not a fleet launch instruction."
+  },
+  {
+    "paths": [
+      ".agents/skills/herdr/SKILL.md"
+    ],
+    "text": "`agent prompt` honors the pane's live bracketed-paste mode and sends text followed by encoded Enter as one ordered submission. It reports successful submission only after both have been written; that alone does not prove the agent started a turn. For Codex on Windows, Herdr sends a paste boundary before Enter so submission does not depend on prompt size. It rejects an agent already waiting at an approval or question dialog with `agent_blocked` before sending any input. Inspect the blocked UI and ask the user before answering it. For normal agent work, `--wait` is enough: it waits for the first settled `idle`, `done`, or `blocked` state. Do not repeat those defaults with `--until`.",
+    "reason": "Existing product-support behavior on Windows; no launch instruction."
+  },
+  {
+    "paths": [
+      "settings.json"
+    ],
+    "text": "    \"-/home/bitnom/.agents/skills/get-codexeverywhere-pricing/SKILL.md\",",
+    "reason": "Profile-generated force exclusion of a pricing skill. CodexEverywhere is a provider brand, not a spawned Codex runtime."
+  }
+]

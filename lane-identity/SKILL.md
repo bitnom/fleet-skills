@@ -9,6 +9,12 @@ A lane's name is its identity and must be the **same string on three surfaces**:
 
 ## Starting a lane
 
+Fleet lanes use only Pi, regardless of role. In agent-issued spawn commands use
+`herdr pane run <verified-new-pane-id> "pil"` after naming the new tab and
+verifying its shell is ready. Use only the mode/profile authorized by the brief;
+this example chooses no role. Other harness names in support docs are not launch
+instructions. See the fleet `herdr` skill for the full topology/readiness checks.
+
 Start it with `pi` inside its herdr pane, or `pil` explicitly (`~/.local/bin/pil`). `pil` derives the name from the tab label, exports `PI_ROOMS_NAME`, renames the herdr agent in the background, and always execs the real binary without blocking the spawn.
 
 - Interactive shells get this automatically: `.bashrc`/`.zshrc` define `pi()` as a `pil` shim when `HERDR_ENV=1`.

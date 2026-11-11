@@ -16,7 +16,7 @@ how this machine does it for everything else:
 
 | Skill | Lives in |
 |---|---|
-| `herdr` | `~/Code/yellowstone/herdr/skills/herdr` |
+| `herdr` | `src/skills/fleet-skills/herdr` (fleet manual; product support stays in Herdr) |
 | `unblock` | `~/Code/apothic-monorepo-workspace/tooling/unblock/skills/unblock` |
 | `yellowstone`, `hotshot` | `~/Code/yellowstone/...` |
 | `dagr-producer` | the herdr plugin that ships it |
@@ -30,6 +30,7 @@ ln -sfn ~/Code/fleet-skills/<name> ~/.agents/skills/<name>
 
 | Skill | Symlinked at |
 |---|---|
+| `herdr` | `~/.agents/skills/herdr` |
 | `beads` | `~/.agents/skills/beads` |
 | `lane-identity` | `~/.agents/skills/lane-identity` |
 | `pi-goal-contracts` | `~/.agents/skills/pi-goal-contracts` |
@@ -81,6 +82,26 @@ cp ~/Code/pi-profile-switch/skills/profile-config/SKILL.md ~/.pi/agent/skills/pr
 
 As of 2026-11-08 the fork's copy, the installed package's copy and the load-path copy are all
 **byte-identical**: `e157d02cb0f874dda1885392de97ad0522a94b7ee52004a6aa30736251c3f4ed`, 14892 bytes.
+
+## Spawn instruction boundary
+
+`herdr/SKILL.md` is the fleet-owned derivative of the stable Herdr skill, not a
+package patch. Keep CLI compatibility facts when refreshing it, but keep fleet
+launch examples Pi/pil-only and role-neutral. `skills/skills.tsv` selects this
+manual rather than the product skill. Do not copy the upstream spawn examples
+back into the fleet load path. No live symlink change is implied by a candidate.
+
+Run the native discovery/regression check from the Yellowstone root:
+
+```bash
+python3 src/skills/fleet-skills/check_spawn_instructions.py --repo .
+python3 -m unittest discover -s src/skills/fleet-skills/tests -v
+```
+
+The discovery JSON records every inspected file and Codex occurrence, including
+allowed historical/product-support references. Unknown Codex text on an active
+instruction surface fails closed for review; support exceptions are exact text,
+not a directory-wide exemption for fleet skills.
 
 ## Verifying the whole arrangement
 

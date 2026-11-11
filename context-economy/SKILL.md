@@ -1,6 +1,6 @@
 ---
 name: context-economy
-description: Token and context conservation rules for pi and codex lanes — measure before reading, keyhole inspection with head/tail/grep -m, recon in one pass, poll in large slices, never build an unrequested verification harness, and construct every wait so it fires on failure as well as success. Use when a task involves reading large files, exploring an unfamiliar repo, running long commands, waiting on a background job or another agent, or when context usage is climbing.
+description: Token and context conservation rules for Pi fleet lanes — measure before reading, keyhole inspection with head/tail/grep -m, recon in one pass, poll in large slices, never build an unrequested verification harness, and construct every wait so it fires on failure as well as success. Use when a task involves reading large files, exploring an unfamiliar repo, running long commands, waiting on a background job or another agent, or when context usage is climbing.
 ---
 
 # Context economy

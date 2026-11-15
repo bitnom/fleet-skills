@@ -1,13 +1,13 @@
 ---
 name: pi-rooms-protocol
-description: pi-rooms messaging rules — pinning a stable name, why pane ids are correlation not identity, the two delivery states (queued/delivered) and why there is no ack, rooms_dm versus herdr agent prompt, reply-all instead of re-derived recipient lists, room history numbering and since, and the gate on who may create a room. Use when sending or answering an agent message, creating or joining a room, deciding whether to DM a working lane, troubleshooting a lane that cannot be reached by name, or reading a space's decision history.
+description: pi-rooms messaging rules — pinning a stable name, why pane ids are correlation not identity, the two delivery states (queued/delivered) and why there is no ack, rooms_dm versus herdr agent prompt, reply-all instead of re-derived recipient lists, room history numbering and since, joining and leaving a room (rooms_leave), and the gate on who may create a room. Use when sending or answering an agent message, creating, joining or leaving a room, being asked to step out of a room or stop reading one, deciding whether to DM a working lane, troubleshooting a lane that cannot be reached by name, or reading a space's decision history.
 ---
 
 # pi-rooms protocol
 
 File-based messaging for pi sessions: DMs, reply-all, shared rooms with readable history. No daemon or server. State is plain files under `~/.pi/agent/rooms`.
 
-Tools: `rooms_who`, `rooms_dm`, `rooms_reply_all`, `rooms_create`, `rooms_join`, `rooms_post`, `rooms_read`, `rooms_list`.
+Tools, ten of them: `rooms_who`, `rooms_pins`, `rooms_dm`, `rooms_reply_all`, `rooms_create`, `rooms_join`, `rooms_leave`, `rooms_post`, `rooms_read`, `rooms_list`.
 
 ## Pin the identity
 
@@ -32,7 +32,7 @@ If a name will not answer, use that evidence rather than guessing. `rooms_who` m
 - `rooms_dm` writing the inbox = **queued**
 - the watcher handing it to the session = **delivered**
 
-That is everything the receipt records. There is **no `rooms_ack` tool and no `acked` state** — the extension registers nine tools and this is not one of them, and it declines a read state deliberately: it cannot see what a model does with a message after handoff. Do not invent an acknowledgement, and do not treat `delivered` as one.
+That is everything the receipt records. There is **no `rooms_ack` tool and no `acked` state** — the extension registers ten tools and this is not one of them, and it declines a read state deliberately: it cannot see what a model does with a message after handoff. Do not invent an acknowledgement, and do not treat `delivered` as one.
 
 Report only the recorded state. A successful send is not a read message.
 
@@ -96,6 +96,47 @@ a state that is not the one it names.
 `rooms_post({room, message})` appends to history and pushes to other members. `rooms_read({room})` numbers history by position, and `since: N` returns only new posts — the way a late joiner catches up.
 
 **Membership is a trust boundary**: any member can put text into every other member's context, so add only agents whose work you would paste into your own prompt.
+
+## Leaving a room
+
+**Asked to step out of a room, or to stop reading it? Call `rooms_leave`. Do not silently stop reading.**
+Stopping to read by hand leaves you a member: every post is still written into your inbox, still
+counts against the room, and is still handed to your session on the next wake. There is a tool for
+this, and "I can't remove myself, there's no leave-room action" is no longer true of this fleet.
+
+```text
+rooms_leave({ room: "dxdb" })                      // parts, and discards your queue for dxdb
+rooms_leave({ room: "dxdb", discardQueued: false })  // parts, keeps the backlog
+```
+
+What it does, and the exact boundary of it:
+
+- **Membership**: your name is removed from `room.json`. You receive no further posts from the room,
+  and none are queued for you — a post after your parting writes no inbox file for you at all.
+- **History**: the parting is appended as an *event* — `kind:"event"`, `recipients:[]`, delivered to
+  nobody — rendered as `#12 15:00 · dxdb-core left the room`. It occupies a sequence number, so
+  `since` cursors keep working across it. Joining records the same kind of event, but only on a real
+  membership change, so a repeated join adds nothing.
+- **`discardQueued` defaults to true and deletes files.** Narrowly: only messages in *your own*
+  inbox, only those whose `room` is the room you left, only those not yet `deliveredAt`, and only
+  top-level inbox files — the `read/` archive behind `rooms_reply_all` is untouched, as are other
+  rooms, direct messages, other lanes' inboxes and all receipts. The tool reports the count it
+  deleted. If you might want the backlog, pass `false`; those messages are still delivered after
+  you leave, which is the whole point of the opt-out.
+- **No replay on rejoin.** `rooms_join` re-admits you; posts made while you were out stay in the
+  history and are never re-queued. Catch up deliberately with `rooms_read({room, since})`.
+- **DMs are unaffected.** A lane that has left a room is still reachable with `rooms_dm`.
+- **You cannot speak into a room you are not in.** `rooms_post` and `rooms_reply_all` both refuse
+  until you rejoin, so leaving is an exit from the room's speech as well as its traffic.
+- **The last member may leave.** The room keeps its history, stays listed by `rooms_list`, and stays
+  joinable — leaving is never a way to delete a room.
+- **Idempotent.** Leaving a room you are not in is a no-op that says so; an unknown room is an error.
+- **Do not use a rename as a leave.** A rename changes the name you answer to but leaves the old name
+  in `room.json`, still being queued posts into an inbox nobody drains. `rooms_leave` first, then rename.
+
+**A discarded message's receipt stays `queued` forever.** Discarding deletes inbox files and leaves
+receipts alone, so a receipt you hold for a message a lane discarded will never turn `delivered` and is
+not evidence the message is still in flight. Treat a long-`queued` receipt as unknown, not pending.
 
 ## Who may create a room
 

@@ -41,9 +41,9 @@ directory.
 
 ```sh
 mkdir -p ~/.local/bin
-ln -s "$HOME/Code/behold/bin/behold" ~/.local/bin/behold
+ln -s "$HOME/.local/share/behold/bin/behold" ~/.local/bin/behold
 hash -r
-behold --version        # -> behold 0.1.0-p1p2
+behold --version        # -> behold 0.2.0-ft67
 ```
 
 CPython 3.10 or newer. Standard library only — no dependencies, and no network at install

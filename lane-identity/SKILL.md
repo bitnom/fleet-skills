@@ -25,15 +25,15 @@ For a leader, use the corresponding explicit form:
 Use only the mode/profile authorized by the brief. Other harness names in support docs are not launch
 instructions. See the fleet `herdr` skill for the full topology/readiness checks.
 
-Start it with `pi` inside its herdr pane, or `pil` explicitly (`~/.local/bin/pil`) only when the
-role/profile environment has already been set by the launch mechanism. `pil` derives the name from
-the tab label, exports `PI_ROOMS_NAME`, renames the herdr agent in the background, and always execs
-the real binary without blocking the spawn.
+`pil` (`~/.local/bin/pil`) is the launcher in every case: it derives the name from the tab label,
+exports `PI_ROOMS_NAME`, renames the herdr agent in the background, and always execs the real binary
+without blocking the spawn. An agent spawning a lane runs it with the role and profile explicit, as
+above.
 
-- Interactive shells get this automatically: `.bashrc`/`.zshrc` define `pi()` as a `pil` shim when `HERDR_ENV=1`.
-- **Agent shell calls are non-interactive and do not source rc files.** An agent spawning a lane must
-  call `pil` by name *and* set the authorized `PI_MODE`/`PI_PROFILE` explicitly; do not rely on the
-  pane's inherited profile.
+- Interactive shells reach that same launcher through a shim: `.bashrc`/`.zshrc` define `pi()` as a `pil` wrapper when `HERDR_ENV=1`.
+- **Agent shell calls are non-interactive and do not source rc files.** That is why `pi` is not a
+  launch route for an agent: an agent spawning a lane must call `pil` by name *and* set the
+  authorized `PI_MODE`/`PI_PROFILE` explicitly; do not rely on the pane's inherited profile.
 
 ## Name the tab before starting the lane
 

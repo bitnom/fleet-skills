@@ -135,14 +135,20 @@ herdr agent list
 
 Do not prompt the caller's current pane unless the user explicitly asked for
 that. If a tab is labeled `*-orchestrator`, treat every pane in it as the
-orchestrator side, even if another pane appears idle. If the intended worker
-tab is absent or ambiguous, stop and ask for clarification rather than
-creating a new worker or sending instructions to a likely-but-unverified pane.
+orchestrator side, even if another pane appears idle. If the lane you were told
+to prompt is absent or ambiguous, stop and ask which pane is meant rather than
+sending instructions to a likely-but-unverified one.
+
+Creating a lane is a separate decision, not a workaround for an unresolved name.
+Whether to delegate at all is your mode's call: a leader that owns the work names
+a new tab and starts the lane there, and never turns a pane in its own tab into a
+worker. The rest of this section is that path.
 
 For an authorized new fleet lane, name its tab before launch and preserve the
 requested working directory. Check the name against reserved participants as
 specified in `lane-identity`; do not create a workspace or worktree unless the
-brief authorizes it. Keep focus in the calling pane:
+brief authorizes it — or a standing policy in your own instructions does, as the
+fleet's per-issue worktree policy does. Keep focus in the calling pane:
 
 ```bash
 herdr tab create --workspace "$HERDR_WORKSPACE_ID" --label <unique-lane-name> --cwd "$PWD" --no-focus
@@ -150,18 +156,22 @@ herdr tab create --workspace "$HERDR_WORKSPACE_ID" --label <unique-lane-name> --
 
 Read the tab and root-pane IDs from the creation response, not from example IDs.
 Verify the returned pane is an available interactive shell with the shell itself
-in the foreground, not an editor, command, or existing agent. Then launch Pi
-through the fleet launcher in that pane:
+in the foreground, not an editor, command, or existing agent. Then launch the
+lane through the fleet launcher with its role and profile explicit:
 
 ```bash
-herdr pane run <returned-pane-id> "pil"
+herdr pane run <returned-pane-id> "env PI_MODE=<leader|worker> PI_PROFILE=<same-role> PI_MODE_CONFIRM_PROJECT=1 pil"
 ```
 
-Use the brief's approved mode/profile launch environment where required. This
-example chooses neither leader nor worker and grants no new project-mode trust.
-Do not execute `pil` in the caller's own agent shell. `pane run` acknowledges
-queued input, not a ready lane: verify topology, Pi identity, registration and
-idle/readiness before submitting the brief. Never prompt a working lane.
+A bare `pil` is not a role launch: it restores the pane's default profile, which
+is often `leader`, so a worker started that way runs the leader contract. Take
+both values from the brief, always as the same role. `PI_MODE_CONFIRM_PROJECT=1`
+records that the project half was accepted; omit it and a cwd carrying a
+`.pi/modes` file composes nothing, so the lane silently falls back to the native
+prompt and loses its role contract. Do not execute `pil` in the caller's own
+agent shell. `pane run` acknowledges queued input, not a ready lane: verify
+topology, Pi identity, registration and idle/readiness before submitting the
+brief. Never prompt a working lane.
 
 For CLI syntax only, `herdr agent start <name> --kind pi --pane <available-pane-id>
 -- <pi-args...>` selects the canonical Pi executable; it is not a substitute for

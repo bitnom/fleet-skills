@@ -132,6 +132,8 @@ absence of a label as permission to ignore a bead.
 
 ## What Belongs In Beads
 
+**Default to Beads whenever work is durable, shared, or resumable.** Before starting substantive project work, search for and inspect its bead, then claim it. Add progress, blockers, dependencies, decisions and handoffs to the existing record; create a correctly labeled bead when durable work has no tracker entry yet. Treat local TODOs as execution checklists only, not project status. Close only after checking the artifact and record the evidence in the close reason.
+
 Use Beads for:
 
 - shared project tasks

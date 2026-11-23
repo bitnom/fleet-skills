@@ -47,31 +47,46 @@ Report only the recorded state. A successful send is not a read message.
 
 DM when the lane is `working` and the message is *context*, not a command. Prompt when the point is to start a turn.
 
-## Messages are cut at 4,000 characters, silently
+## Messages are cut only when a truncation threshold is configured
 
-`src/store.ts:28` — `export const MAX_MESSAGE_CHARS = 4000;` — and `:182-183` slices past it and
-appends a marker:
+Truncation is a config setting — `maxMessageChars` in `<base>/config.json` — and it is **off by
+default**. `null`, `0` and `-1` all mean disabled: the whole message is stored and delivered. A
+positive integer cuts every outbound body at that many characters and appends a marker. `rooms_dm`,
+`rooms_post` and `rooms_reply_all` all write through one `sanitize()` call, so the threshold reaches
+every path:
 
 ```ts
-if (cleaned.length <= MAX_MESSAGE_CHARS) return cleaned;
-return `${cleaned.slice(0, MAX_MESSAGE_CHARS)}\n… [truncated ${cleaned.length - MAX_MESSAGE_CHARS} chars]`;
+export function sanitize(text: string, maxChars: number | null = null): string {
+  const cleaned = text.replace(/\r\n/g, "\n").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "");
+  if (maxChars == null || !Number.isFinite(maxChars)) return cleaned;
+  const limit = Math.floor(maxChars);
+  if (limit <= 0 || cleaned.length <= limit) return cleaned;
+  return `${cleaned.slice(0, limit)}\n… [truncated ${cleaned.length - limit} chars]`;
+}
 ```
 
-**The sender sees success.** `rooms_dm` returns a delivery receipt for a message that arrived cut,
-and the marker sits at the end of the stored text where the recipient may not look. This is not a
-send failure and it is not the transport dropping anything: the message was truncated at write time.
+Sanitisation is separate and unconditional: control characters are stripped whether or not a
+threshold is set, because disabling truncation must never be a way to put an escape sequence into
+another agent's terminal.
 
-Two habits follow, and they have both been paid for:
+**When a threshold is set, the sender sees success.** `rooms_dm` returns a delivery receipt for a
+message that arrived cut, and the marker sits at the end of the stored text where the recipient may
+not look. This is not a send failure and it is not the transport dropping anything: the message was
+truncated at write time.
+
+Two habits, and they have both been paid for:
 
 1. **Substantive content goes in a file, not a DM.** Write the report/analysis/diff to a path and send
    the path plus a one-line summary. A DM is conversation; state belongs on disk. This is the same
-   rule as "rooms carry conversation, not state", made concrete by a hard cap.
+   rule as "rooms carry conversation, not state", and it is why the default is safe: a fleet that
+   never sets a threshold still should not paste a report into a message.
 2. **When a message of yours is cut, send the tail — never resend the whole thing.** Start the follow-up
    with an explicit marker naming where the previous one stopped, so the recipient can splice them.
    Resending whole doubles the message and arrives cut at the same place.
 
 Reading a message you received: if it ends mid-sentence or carries a `[truncated N chars]` line, the
-rest was never sent — ask for it rather than inferring what it said.
+rest was never sent — ask for it rather than inferring what it said. Under the default that line
+cannot appear unless someone configured a threshold.
 
 **Test for truncation with an anchored match, never a substring.** `'[truncated' in text` is wrong:
 a message that *quotes this section* contains the word and looks cut when it is whole. On 2026-11-03

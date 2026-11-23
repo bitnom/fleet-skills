@@ -1,0 +1,3 @@
+# id	kind	spec	why
+# repo skills are linked from their owning checkout or installed from the upstream repository.
+mcpdo	repo	modelcontextprotocol/inspector	MCP Inspector connection CLI: connect deliberately to catalog or ad-hoc MCP servers, inspect/call tools, resources and prompts, and handle auth, elicitation, and load runs. Upstream-owned skill distributed through the global agent skills root.

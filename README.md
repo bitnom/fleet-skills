@@ -41,6 +41,10 @@ ln -sfn ~/Code/fleet-skills/<name> ~/.agents/skills/<name>
 | `agents-cron` | `~/.agents/skills/agents-cron` |
 | `subrouter-provider-ops` | `~/.agents/skills/subrouter-provider-ops` |
 | `llm-provider-benchmark` | `~/.agents/skills/llm-provider-benchmark` |
+| `mcpdo` | `~/.agents/skills/mcpdo` |
+
+`mcpdo` is upstream-owned by `modelcontextprotocol/inspector`; its `repo` row in `skills/skills.tsv`
+lets `skills-sync.sh` install it from that source wherever no checkout exists.
 
 `subrouter-provider-ops` and `llm-provider-benchmark` arrived here on 2026-11-10 from the
 load path itself: both were hand-authored straight into `~/.agents/skills` as plain
